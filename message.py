@@ -13,7 +13,7 @@ import io
 import mimetypes
 import chardet
 import gzip
-import cgi
+import html
 import time
 import pkgutil
 
@@ -184,7 +184,8 @@ class Message:
 
 
     def createRawFile(self, data):
-        f = gzip.open('%s/raw.eml.gz' %(self.directory), 'wb')
+        #f = gzip.open('%s/raw.eml.gz' %(self.directory), 'wb')
+        f = open('%s/message.eml' %(self.directory), 'wb')
         f.write(data)
         f.close()
 
@@ -257,7 +258,7 @@ class Message:
 <body>
 %s
 </body>
-</html>""" % (cgi.escape(fromname), cgi.escape(subject), utf8_content)
+</html>""" % (html.escape(fromname), html.escape(subject), utf8_content)
 
         with open(os.path.join(self.directory, 'message.html'), 'wb') as fp:
             fp.write(bytearray(utf8_content, 'utf-8'))

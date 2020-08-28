@@ -15,7 +15,12 @@ import datetime
 class MailboxClient:
     """Operations on a mailbox"""
 
-    def __init__(self, host, port, username, password, remote_folder):
+    def __init__(self, host, port, username, password, remote_folder, options):
+        self.days = options['days']
+        self.local_folder = options['local_folder']
+        self.wkhtmltopdf = options['wkhtmltopdf']
+        self.json = options['json']
+
         self.mailbox = imaplib.IMAP4_SSL(host, port)
         self.mailbox.login(username, password)
         typ, data = self.mailbox.select(remote_folder, readonly=True)
@@ -26,21 +31,20 @@ class MailboxClient:
             typ, data = self.mailbox.select(adjust_remote_folder, readonly=True)
             if typ != 'OK':
                 print("MailboxClient: Could not select remote folder '%s'" % remote_folder)
+        print(f"{data} messages found.")
 
-
-    def copy_emails(self, days, local_folder, wkhtmltopdf):
+    def copy_emails(self):
 
         n_saved = 0
         n_exists = 0
 
-        self.local_folder = local_folder
-        self.wkhtmltopdf = wkhtmltopdf
         criterion = 'ALL'
 
-        if days:
-            date = (datetime.date.today() - datetime.timedelta(days)).strftime("%d-%b-%Y")
+        if self.days:
+            date = (datetime.date.today() - datetime.timedelta(self.days)).strftime("%d-%b-%Y")
             criterion = '(SENTSINCE {date})'.format(date=date)
 
+        # self.mailbox.select() already done in init
         typ, data = self.mailbox.search(None, criterion)
         for num in data[0].split():
             typ, data = self.mailbox.fetch(num, '(RFC822)')
@@ -51,56 +55,49 @@ class MailboxClient:
 
         return (n_saved, n_exists)
 
-
     def cleanup(self):
         self.mailbox.close()
         self.mailbox.logout()
 
-
-    def getEmailFolder(self, msg, data):
-        if msg['Message-Id']:
-            foldername = re.sub('[^a-zA-Z0-9_\-\.()\s]+', '', msg['Message-Id'])
-        else:
-            foldername = hashlib.sha224(data).hexdigest()
-
-        year = 'None'
-        if msg['Date']:
-            match = re.search('\d{1,2}\s\w{3}\s(\d{4})', msg['Date'])
-            if match:
-                year = match.group(1)
-
-
-        return os.path.join(self.local_folder, year, foldername)
-
-
-
     def saveEmail(self, data):
         for response_part in data:
             if isinstance(response_part, tuple):
-                msg = ""
-                # Handle Python version differences:
-                # Python 2 imaplib returns bytearray, Python 3 imaplib
-                # returns str.
-                if isinstance(response_part[1], str):
-                    msg = email.message_from_string(response_part[1])
-                else:
-                    try:
-                        msg = email.message_from_string(response_part[1].decode("utf-8"))
-                    except:
-                        print("couldn't decode message with utf-8 - trying 'ISO-8859-1'")
-                        msg = email.message_from_string(response_part[1].decode("ISO-8859-1"))
+                # parse a bytes email into a message object
+                msg = email.message_from_bytes(response_part[1])
+                # print (msg)
+                # decode the email subject
+                try:
+                    subject = email.header.decode_header(msg["Subject"])[0][0]
+                    if isinstance(subject, bytes):
+                        # if it's a bytes, decode to str
+                        subject = subject.decode()
+                except:
+                    #there may be no subject
+                    subject=""
 
-                directory = self.getEmailFolder(msg, data[0][1])
-
+                local_date = datetime.datetime.fromtimestamp(email.utils.mktime_tz(email.utils.parsedate_tz(msg["Date"])))
+                timestamp = local_date.strftime('%Y%m%d%H%M%S')
+                year=local_date.strftime('%Y')
+                directory = os.path.join(self.local_folder, year, timestamp+" "+subject[:50])
+                print(directory)
                 if os.path.exists(directory):
                     return False
-
                 os.makedirs(directory)
+
+                # if isinstance(response_part[1], str):
+                #     msg = email.message_from_string(response_part[1])
+                # else:
+                #     try:
+                #         msg = email.message_from_string(response_part[1].decode("utf-8"))
+                #     except:
+                #         print("couldn't decode message with utf-8 - trying 'ISO-8859-1'")
+                #         msg = email.message_from_string(response_part[1].decode("ISO-8859-1"))
 
                 try:
                     message = Message(directory, msg)
                     message.createRawFile(data[0][1])
-                    message.createMetaFile()
+                    if self.json == True:
+                        message.createMetaFile()
                     message.extractAttachments()
 
                     if self.wkhtmltopdf:
@@ -117,17 +114,21 @@ class MailboxClient:
 
         return True
 
-
 def save_emails(account, options):
-    mailbox = MailboxClient(account['host'], account['port'], account['username'], account['password'], account['remote_folder'])
-    stats = mailbox.copy_emails(options['days'], options['local_folder'], options['wkhtmltopdf'])
+    mailbox = MailboxClient(account['host'], account['port'], account['username'], account['password'], account['remote_folder'], options)
+    stats = mailbox.copy_emails()
     mailbox.cleanup()
     print('{} emails created, {} emails already exists'.format(stats[0], stats[1]))
-
 
 def get_folder_fist(account):
     mailbox = imaplib.IMAP4_SSL(account['host'], account['port'])
     mailbox.login(account['username'], account['password'])
     folder_list = mailbox.list()[1]
     mailbox.logout()
+
+    try:
+        folder_list = [folder_entry.decode().replace("/",".").split(' "." ')[1].strip().replace('"','').replace('\r','').replace('\n','') for folder_entry in folder_list]
+    except:
+        print("Couldn't clean folder list:")
+        print(folder_list)
     return folder_list
