@@ -78,7 +78,7 @@ class MailboxClient:
                 local_date = datetime.datetime.fromtimestamp(email.utils.mktime_tz(email.utils.parsedate_tz(msg["Date"])))
                 timestamp = local_date.strftime('%Y%m%d%H%M%S')
                 year=local_date.strftime('%Y')
-                directory = os.path.join(self.local_folder, year, timestamp+" "+subject[:50])
+                directory = os.path.join(self.local_folder, year, timestamp+" "+subject[:50].strip())
                 print(directory)
                 if os.path.exists(directory):
                     return False
