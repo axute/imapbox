@@ -1,27 +1,70 @@
 #!/usr/bin/env python
 
+import imaplib
 import getpass
 import os
 
 from six.moves import configparser
 
-from account import Account
+
+class Account:
+    def __init__(self, name):
+        self.name = name
+        self.host = None
+        self.port = 993
+        self.remote_folder = 'INBOX'
+        self.username = None
+        self.password = None
+        self.ssl = False
+
+    def get_mailbox(self):
+        if not self.ssl:
+            mailbox = imaplib.IMAP4(self.host, self.port)
+        else:
+            mailbox = imaplib.IMAP4_SSL(self.host, self.port)
+        mailbox.login(self.username, self.password)
+        return mailbox
+
+    def get_folder_fist(self):
+        mailbox = self.get_mailbox()
+        folder_list = mailbox.list()[1]
+        mailbox.close()
+        mailbox.logout()
+        result = []
+        try:
+            folder_entry: bytes
+            for folder_entry in folder_list:
+                folder = folder_entry.decode().replace("/", ".").split(' "." ')[1]
+                folder = folder.strip().replace('"', '').replace('\r', '').replace('\n', '')
+                result.append(folder)
+        except Exception as e:
+            print("Couldn't clean folder list:")
+            print(folder_list)
+            print(e)
+
+        return result
 
 
 class Options:
     def __init__(self, args):
         self.args = args
-        self.days = None
-        self.local_folder = '.'
-        self.wkhtmltopdf = None
-        self.json = True
+        self.days = int(os.getenv('IMAPBOX_DAYS', None)) if os.getenv('IMAPBOX_DAYS') else None
+        self.local_folder = os.getenv('IMAPBOX_LOCAL_FOLDER', '.')
+        self.wkhtmltopdf = os.getenv('IMAPBOX_WKHTMLTOPDF', None)
+        self.json = bool(os.getenv('IMAPBOX_JSON')) if os.getenv('IMAPBOX_JSON') else True
         self.accounts: [Account]
         self.accounts = []
-        self.loadConfig()
+        self.load_config()
 
-    def loadConfig(self):
+    def load_config(self):
         config = configparser.ConfigParser(allow_no_value=True)
-        config.read(['./config.cfg', '/etc/imapbox/config.cfg', os.path.expanduser('~/.config/imapbox/config.cfg'), './test/config.cfg'])
+        config.read([
+            './config.cfg',
+            './test/config.cfg',
+            os.path.expanduser('~/.config/imapbox/config.cfg'),
+            '/etc/imapbox/config.cfg',
+            os.path.join(self.local_folder, 'config.cfg'),
+        ])
         if config.has_section('imapbox'):
             if config.has_option('imapbox', 'days'):
                 self.days = config.getint('imapbox', 'days')
@@ -82,3 +125,5 @@ class Options:
 
         if self.args.json:
             self.json = self.args.json
+
+        print('days: {}, local_folder: {}, wkhtmltopdf: {}, json: {}'.format(self.days, self.local_folder, self.wkhtmltopdf, self.json))
