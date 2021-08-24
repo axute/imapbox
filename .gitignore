@@ -1,6 +1,6 @@
 __pycache__/
 *.py[cod]
 .tags
-test/config.cfg
+test/
 .idea
 config.cfg
