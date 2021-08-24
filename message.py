@@ -61,8 +61,8 @@ class Message:
         self.tos = self.get_addresses('to')
         self.ccs = self.get_addresses('cc')
         self.subject = self.get_header(self.msg.get('Subject', ''))
-        self.text_content = self.get_content_text()
-        self.html_content = self.get_content_html()
+        self.content_text = self.get_content_text()
+        self.content_html = self.get_content_html()
         self.directory = self.get_target_directory(parent_directory)
         self.file_eml = os.path.join(self.directory, 'message.eml')
         self.file_json = os.path.join(self.directory, 'message.json')
@@ -152,9 +152,9 @@ class Message:
                 'Date': rfc2822,
                 'Utc': iso8601,
                 'Attachments': attachments,
-                'WithHtml': len(self.html_content) > 0,
-                'WithText': len(self.text_content) > 0,
-                'Body': self.text_content
+                'WithHtml': len(self.content_html) > 0,
+                'WithText': len(self.content_text) > 0,
+                'Body': self.content_text
             }, indent=4, ensure_ascii=False)
 
             json_file.write(data)
@@ -183,9 +183,9 @@ class Message:
         return text_content
 
     def create_file_text(self):
-        if self.text_content != '':
+        if self.content_text != '':
             with open(self.file_txt, 'wb') as fp:
-                fp.write(bytearray(self.text_content, 'utf-8'))
+                fp.write(bytearray(self.content_text, 'utf-8'))
 
     def get_content_html(self):
         html_content = ''
@@ -200,8 +200,10 @@ class Message:
         return html_content
 
     def create_file_html(self):
-        if self.html_content != '':
-            utf8_content = self.html_content
+        if self.content_html == '' and self.content_text != '':
+            self.content_html = self.content_text
+        if self.content_html != '':
+            utf8_content = self.content_html
             for img in self.parts['embed_images']:
                 pattern = 'src=["\']cid:%s["\']' % (re.escape(img[0]))
                 path = os.path.join('attachments', img[1])
@@ -293,6 +295,7 @@ class Message:
                 'quiet': '',
                 'disable-javascript': '',
                 'enable-local-file-access': '',
+                'encoding': 'utf-8',
             }
             config = pdfkit.configuration(wkhtmltopdf=wkhtmltopdf)
             if os.path.exists(self.file_html):
