@@ -9,21 +9,54 @@ For each email in an IMAP mailbox, a folder is created with the following files:
 File              | Description
 ------------------|------------------
 __message.html__  | If an html part exists for the message body. the `message.html` will always be in UTF-8, the embedded images links are modified to refer to the attachments subfolder.
-__message.pdf__   | This file is optionally created from `message.html` when the `wkhtmltopdf` option is set in the config file.
-__attachments__   | The attachments folder contains the attached files and the embeded images.
+__message.pdf__   | This file is optionally created from `message.html` (or `message.txt` if `message.html` not exists) when the `wkhtmltopdf` option is set in the config file.
 __message.txt__   | This file contain the body text if available in the original email, always converted in UTF-8.
-__metadata.json__ | Various informations in JSON format, date, recipients, body text, etc... This file can be used from external applications or a search engine like [Elasticsearch](http://www.elasticsearch.com/).
-__raw.eml.gz__    | A gziped version of the email in `.eml` format.
+__message.json__  | Various informations in JSON format, date, recipients, body text, etc... This file can be used from external applications or a search engine like [Elasticsearch](http://www.elasticsearch.com/).
+__message.eml__   | A raw version of the email in `.eml` format.
+__attachments__   | The attachments folder contains the attached files.
 
 Imapbox was designed to archive multiple mailboxes in one common directory tree,
 copies of the same message spread knew several account will be archived once using the Message-Id property.
 
 ## Install
 
-This script requires Python 3 for `master` branch or python 2 on the `python2` branch and the following libraries:
-* [six](https://pypi.org/project/six)
+### Local running script
+This script requires Python 3 for `master` branch and the following libraries:
+* [six](https://pypi.org/project/six) - required for config parsing
 * [chardet](https://pypi.python.org/pypi/chardet) – required for character encoding detection.
+* [unidecode](https://pypi.python.org/pypi/unidecode) – required for directory unicode creation.
 * [pdfkit](https://pypi.python.org/pypi/pdfkit) – optionally required for archiving emails to PDF.
+* [crython](https://pypi.python.org/pypi/crython) – optionally required for running as permanent cron (see `cron.py`).
+
+### Docker container (as cronjob)
+
+1. Build the container image
+```
+docker build -t imapbox .
+```
+
+2. Create a config
+```
+touch config.cfg
+```
+
+
+3. Run the container
+```
+docker run -d \
+    -v $(pwd)/test:/var/imapbox \
+    -v $(pwd)/config.cfg:/etc/imapbox/config.cfg \
+    imapbox
+```
+4. Add your accounts (`[account1] ...`) to config.cfg, the `[imapbox]` is not reqired if you use environment variables for the container
+
+## Environment variables
+
+* `IMAPBOX_CRON_EXPR` cronjob expression see [crython#usage](https://github.com/ahawker/crython#usage) and [crython#keywords](https://github.com/ahawker/crython#keywords)
+* `IMAPBOX_DAYS` see `config.cfg` section `[imapbox]` value for `days`
+* `IMAPBOX_LOCAL_FOLDER` see `config.cfg` section `[imapbox]` value for `local_folder`
+* `IMAPBOX_WKHTMLTOPDF` see `config.cfg` section `[imapbox]` value for `wkhtmltopdf`
+* `IMAPBOX_JSON` see `config.cfg` section `[imapbox]` value for `json`
 
 ## Use cases
 
@@ -35,7 +68,10 @@ This script requires Python 3 for `master` branch or python 2 on the `python2` b
 
 ## Config file
 
-Use `./config.cfg` `~/.config/imapbox/config.cfg` or `/etc/imapbox/config.cfg`
+You can use one of the following locations: 
+* `./config.cfg` 
+* `~/.config/imapbox/config.cfg`
+* `/etc/imapbox/config.cfg`
 
 Example:
 ```ini
@@ -67,6 +103,7 @@ Parameter       | Description
 local_folder    | The full path to the folder where the emails should be stored. If the local_folder is not set, imapbox will download the emails in the current directory. This can be overwritten with the shell argument `-l`.
 days            | Number of days back to get in the IMAP account, this should be set greater and equals to the cronjob frequency. If this parameter is not set, imapbox will get all the emails from the IMAP account. This can be overwritten with the shell argument `-d`.
 wkhtmltopdf     | (optional) The location of the `wkhtmltopdf` binary. By default `pdfkit` will attempt to locate this using `which` (on UNIX type systems) or `where` (on Windows). This can be overwritten with the shell argument `-w`.
+json            | (optional) If false,  `message.json` will not be generated `-j`.
 
 ### Other sections
 
@@ -100,7 +137,7 @@ WithText        | Boolean, if the `message.txt` file exists or not
 
 ## Elasticsearch
 
-The `metadata.json` file contain the necessary informations for a search engine like [Elasticsearch](http://www.elasticsearch.com/).
+The `message.json` file contain the necessary informations for a search engine like [Elasticsearch](http://www.elasticsearch.com/).
 Populate an Elasticsearch index with the emails metadata can be done with a simple script.
 
 Create an index:
@@ -139,26 +176,6 @@ Example with a filter on UTC date:
 ```bash
 find . -name "*.json" | xargs cat | jq 'select(.Utc > "20150221T130000Z")'
 ```
-
-## Docker compose
-
-```
-version: '3'
-services:
-
-  imapbox:
-    image: mauricemueller/imapbox
-    container_name: imapbox
-    volumes:
-      - imapbox_data:/var/imapbox
-      # change the path to the config
-      - ./test/config.cfg:/etc/imapbox/config.cfg
-
-volumes:
-  imapbox_data:
-```
-
-`docker-compose run --rm imapbox`
 
 ## Similar projects
 
