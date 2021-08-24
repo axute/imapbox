@@ -184,7 +184,8 @@ class Message:
 
 
     def createRawFile(self, data):
-        f = gzip.open('%s/raw.eml.gz' %(self.directory), 'wb')
+        #f = gzip.open('%s/raw.eml.gz' %(self.directory), 'wb')
+        f = open('%s/message.eml' %(self.directory), 'wb')
         f.write(data)
         f.close()
 

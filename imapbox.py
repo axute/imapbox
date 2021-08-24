@@ -16,6 +16,7 @@ def load_configuration(args):
         'days': None,
         'local_folder': '.',
         'wkhtmltopdf': None,
+        'json': False,
         'accounts': []
     }
 
@@ -28,6 +29,9 @@ def load_configuration(args):
 
         if config.has_option('imapbox', 'wkhtmltopdf'):
             options['wkhtmltopdf'] = os.path.expanduser(config.get('imapbox', 'wkhtmltopdf'))
+
+        if config.has_option('imapbox', 'json'):
+            options['json'] = os.path.expanduser(config.get('imapbox', 'json'))
 
 
     for section in config.sections():
@@ -77,6 +81,9 @@ def load_configuration(args):
     if (args.wkhtmltopdf):
         options['wkhtmltopdf'] = args.wkhtmltopdf
 
+    if (args.json):
+        options['json'] = args.json
+
     return options
 
 
@@ -88,6 +95,7 @@ def main():
     argparser.add_argument('-d', dest='days', help="Number of days back to get in the IMAP account", type=int)
     argparser.add_argument('-w', dest='wkhtmltopdf', help="The location of the wkhtmltopdf binary")
     argparser.add_argument('-a', dest='specific_account', help="Select a specific account to backup")
+    argparser.add_argument('-j', dest='json', help="Output JSON")
     args = argparser.parse_args()
     options = load_configuration(args)
 
@@ -97,10 +105,9 @@ def main():
 
         if account['remote_folder'] == "__ALL__":
             basedir = options['local_folder']
-            for folder_entry in get_folder_fist(account):
-                folder_name = folder_entry.decode().replace("/",".").split(' "." ')
-                print("Saving folder: " + folder_name[1])
-                account['remote_folder'] = folder_name[1]
+            for folder_name in get_folder_fist(account):
+                print("Saving folder: " + folder_name)
+                account['remote_folder'] = folder_name
                 options['local_folder'] = os.path.join(basedir, account['remote_folder'])
                 save_emails(account, options)
         else:
