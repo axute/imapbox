@@ -3,4 +3,4 @@ __pycache__/
 .tags
 test/
 .idea
-*.config.cfg
+*config.cfg
