@@ -292,6 +292,7 @@ class Message:
             pdfkit_options = {
                 'quiet': '',
                 'disable-javascript': '',
+                'enable-local-file-access': '',
             }
             config = pdfkit.configuration(wkhtmltopdf=wkhtmltopdf)
             if os.path.exists(self.file_html):
