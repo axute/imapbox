@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import datetime
 import email
@@ -178,10 +179,7 @@ class Message:
     def get_content_text(self):
         text_content = ''
         for part in self.parts['text']:
-            raw_content = part.get_payload(decode=True)
-            charset = self.get_part_charset(part)
-            text_content += raw_content.decode(charset, "replace")
-
+            text_content += part.get_payload(decode=True).decode(self.get_part_charset(part), "replace")
         return text_content
 
     def create_file_text(self):
@@ -193,9 +191,7 @@ class Message:
         html_content = ''
 
         for part in self.parts['html']:
-            raw_content = part.get_payload(decode=True)
-            charset = self.get_part_charset(part)
-            html_content += raw_content.decode(charset, "replace")
+            html_content += part.get_payload(decode=True).decode(self.get_part_charset(part), "replace")
 
         m = re.search('<body[^>]*>(.+)</body>', html_content, re.S | re.I)
         if m is not None:
@@ -293,10 +289,14 @@ class Message:
 
     def create_file_pdf(self, wkhtmltopdf):
         if has_pdfkit:
+            pdfkit_options = {
+                'quiet': '',
+                'disable-javascript': '',
+            }
             config = pdfkit.configuration(wkhtmltopdf=wkhtmltopdf)
             if os.path.exists(self.file_html):
                 try:
-                    pdfkit.from_file(self.file_html, self.file_pdf, configuration=config)
+                    pdfkit.from_file(self.file_html, self.file_pdf, options=pdfkit_options, configuration=config)
                 except Exception as e:
                     print('pdfkit: ')
                     print(e)
@@ -305,7 +305,7 @@ class Message:
                 print("Couldn't create PDF message from html")
                 if os.path.exists(self.file_txt):
                     try:
-                        pdfkit.from_file(self.file_txt, self.file_pdf, configuration=config)
+                        pdfkit.from_file(self.file_txt, self.file_pdf, options=pdfkit_options, configuration=config)
                     except Exception as e:
                         print('pdfkit: ')
                         print(e)
