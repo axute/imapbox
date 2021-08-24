@@ -12,6 +12,8 @@ RUN pip install crython
 # basic environment variables for system and wkhtmltopdf
 ENV XDG_RUNTIME_DIR=/tmp/runtime-root
 ENV TZ=Europe/Berlin
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONIOENCODING=UTF-8
 
 # environment variables for IMAPBOX
 ENV IMAPBOX_WKHTMLTOPDF=/usr/bin/wkhtmltopdf
