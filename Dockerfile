@@ -1,7 +1,7 @@
 FROM python:3.8-alpine
 
 # Install dependencies
-RUN apk add --update ttf-dejavu ttf-droid ttf-freefont ttf-liberation wkhtmltopdf xvfb tini
+RUN apk add --update ttf-dejavu ttf-droid ttf-freefont ttf-liberation wkhtmltopdf xvfb tini tzdata
 RUN pip install six
 RUN pip install chardet
 RUN pip install pdfkit
