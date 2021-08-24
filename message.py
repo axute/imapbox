@@ -201,7 +201,7 @@ class Message:
 
     def create_file_html(self):
         if self.content_html == '' and self.content_text != '':
-            self.content_html = self.content_text
+            self.content_html = '<br />'.join(self.content_text.splitlines())
         if self.content_html != '':
             utf8_content = self.content_html
             for img in self.parts['embed_images']:
