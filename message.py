@@ -285,10 +285,11 @@ class Message:
             else:
                 return False
             for afile in self.parts['files']:
-                with open(os.path.join(attdir, afile[1]), 'wb') as fp:
-                    payload = afile[0].get_payload(decode=True)
-                    if payload:
+                payload = afile[0].get_payload(decode=True)
+                if payload:
+                    with open(os.path.join(attdir, afile[1]), 'wb') as fp:
                         fp.write(payload)
+                        fp.close()
 
     def create_file_pdf(self, wkhtmltopdf):
         if has_pdfkit:
