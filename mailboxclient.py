@@ -52,7 +52,10 @@ class MailboxClient:
         return n_saved, n_exists
 
     def cleanup(self):
-        self.mailbox.close()
+        try:
+            self.mailbox.close()
+        except Exception as e:
+            print(e)
         self.mailbox.logout()
 
     def save_mail(self, data):
@@ -86,22 +89,25 @@ class Exporter:
         argparser.add_argument('-d', dest='days', help="Number of days back to get in the IMAP account", type=int)
         argparser.add_argument('-w', dest='wkhtmltopdf', help="The location of the wkhtmltopdf binary")
         argparser.add_argument('-a', dest='specific_account', help="Select a specific account to backup")
-        argparser.add_argument('-j', dest='json', help="Output JSON")
+        argparser.add_argument('-j', dest='json', help="Output JSON", type=bool)
+        argparser.add_argument('-s', dest='local_subfolder', help="Create local subfolder like online", type=bool)
         args = argparser.parse_args()
         options = Options(args)
-
+        account: Account
         for account in options.accounts:
 
             print('{}/{} (on {})'.format(account.name, account.remote_folder, account.host))
 
             if account.remote_folder == "__ALL__":
                 basedir = options.local_folder
-                for folder_entry in account.get_folder_fist():
-                    folder_name = folder_entry.decode().replace("/", ".").split(' "." ')
-                    print("Saving folder: " + folder_name[1])
-                    account.remote_folder = folder_name[1]
-                    options.local_folder = os.path.join(basedir, account.remote_folder)
+                for folder_name in account.get_folder_fist():
+                    print("Saving folder: " + folder_name)
+                    account.remote_folder = folder_name
+                    if options.local_subfolder:
+                        options.local_folder = os.path.join(basedir, folder_name)
                     self.safe_mails(account, options)
+                options.local_folder = basedir
+                account.remote_folder = "__ALL__"
             else:
                 self.safe_mails(account, options)
 

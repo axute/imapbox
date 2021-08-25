@@ -29,7 +29,10 @@ class Account:
     def get_folder_fist(self):
         mailbox = self.get_mailbox()
         folder_list = mailbox.list()[1]
-        mailbox.close()
+        try:
+            mailbox.close()
+        except Exception as e:
+            print(e)
         mailbox.logout()
         result = []
         try:
@@ -52,10 +55,22 @@ class Options:
         self.days = int(os.getenv('IMAPBOX_DAYS', None)) if os.getenv('IMAPBOX_DAYS') else None
         self.local_folder = os.getenv('IMAPBOX_LOCAL_FOLDER', '.')
         self.wkhtmltopdf = os.getenv('IMAPBOX_WKHTMLTOPDF', None)
-        self.json = bool(os.getenv('IMAPBOX_JSON')) if os.getenv('IMAPBOX_JSON') else True
+        self.json = self.load_bool(os.getenv('IMAPBOX_JSON'), True)
+        self.local_subfolder = self.load_bool(os.getenv('IMAPBOX_LOCAL_SUBFOLDER'), True)
         self.accounts: [Account]
         self.accounts = []
         self.load_config()
+
+    def load_bool(self, value, default: bool):
+        if isinstance(value, bool) and value == True:
+            return True
+        if value is None:
+            return default
+        if value == '':
+            return default
+        if value.lower() in ['true', '1', 't', 'y', 'yes']:
+            return True
+        return False
 
     def load_config(self):
         config = configparser.ConfigParser(allow_no_value=True)
@@ -73,11 +88,15 @@ class Options:
             if config.has_option('imapbox', 'local_folder'):
                 self.local_folder = os.path.expanduser(config.get('imapbox', 'local_folder'))
 
+            if config.has_option('imapbox', 'local_subfolder'):
+                self.local_folder = os.path.expanduser(config.get('imapbox', 'local_folder'))
+
             if config.has_option('imapbox', 'wkhtmltopdf'):
                 self.wkhtmltopdf = os.path.expanduser(config.get('imapbox', 'wkhtmltopdf'))
 
             if config.has_option('imapbox', 'json'):
-                self.json = os.path.expanduser(config.get('imapbox', 'json'))
+                self.json = self.load_bool(config.get('imapbox', 'json'), True)
+
         for section in config.sections():
 
             if 'imapbox' == section:
@@ -103,8 +122,7 @@ class Options:
                 account.password = getpass.getpass(prompt=prompt)
 
             if config.has_option(section, 'ssl'):
-                if config.get(section, 'ssl').lower() == "true":
-                    account.ssl = True
+                account.ssl = self.load_bool(config.get(section, 'ssl'), False)
 
             if config.has_option(section, 'remote_folder'):
                 account.remote_folder = config.get(section, 'remote_folder')
@@ -125,6 +143,9 @@ class Options:
             self.wkhtmltopdf = self.args.wkhtmltopdf
 
         if self.args.json:
-            self.json = self.args.json
+            self.json = self.load_bool(self.args.json, True)
+
+        if self.args.local_subfolder:
+            self.local_subfolder = self.args.local_subfolder
 
         print('days: {}, local_folder: {}, wkhtmltopdf: {}, json: {}'.format(self.days, self.local_folder, self.wkhtmltopdf, self.json))
